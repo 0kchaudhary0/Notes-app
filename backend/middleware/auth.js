@@ -11,16 +11,24 @@ const protect = (req, res, next) => {
 
   const token = authHeader.split(" ")[1];
 
-  // Read the user id stored inside the token
-  const decoded = jwt.decode(token);
+  try {
+    // Verify the signature and expiration before trusting the user id.
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-  if (!decoded) {
+    if (typeof decoded === "string" || !decoded.id) {
+      return res.status(401).json({ message: "Not authorized, invalid token" });
+    }
+
+    // Save the verified user id so the controllers can use it
+    req.userId = decoded.id;
+    next();
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Not authorized, token expired" });
+    }
+
     return res.status(401).json({ message: "Not authorized, invalid token" });
   }
-
-  // Save the user id so the controllers can use it
-  req.userId = decoded.id;
-  next();
 };
 
 module.exports = protect;
